@@ -1,0 +1,17 @@
+# Environment variables containing sensitive credentials
+.env
+
+# Logs and databases
+logs/
+*.log
+
+# Python cache and compiled files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# IDE and OS settings
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db

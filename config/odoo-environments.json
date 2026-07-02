@@ -1,0 +1,73 @@
+{
+  "defaultProfile": "prod",
+  "profiles": {
+    "prod": {
+      "baseUrl": "https://bonario-vietnam.odoo.com",
+      "db": "bonario-vietnam",
+      "authMethod": "xmlrpc-api-key",
+      "usernameEnv": "ODOO_PROD_USERNAME",
+      "apiKeyEnv": "ODOO_PROD_API_KEY",
+      "readOnlyDefault": true,
+      "allowWrite": false,
+      "notes": "Production profile. Require explicit approval before writes, and re-verify IDs, models, and custom fields before execution."
+    },
+    "test": {
+      "baseUrl": "https://testing2605.odoo.com",
+      "db": null,
+      "inheritAuthFrom": "prod",
+      "authMethod": "xmlrpc-api-key",
+      "deriveDbFromHost": true,
+      "readOnlyDefault": false,
+      "allowWrite": true,
+      "notes": "Test profile. Domain may change over time and can be overridden per run. By default it inherits auth from prod and derives db from the hostname unless an explicit db override is provided."
+    },
+    "test1604": {
+      "baseUrl": "https://testing1604.odoo.com/odoo",
+      "db": null,
+      "inheritAuthFrom": "prod",
+      "authMethod": "xmlrpc-api-key",
+      "deriveDbFromHost": true,
+      "readOnlyDefault": false,
+      "allowWrite": true,
+      "notes": "Test server for Option 2 implementation. Inherits auth from prod."
+    },
+    "prod19": {
+      "baseUrl": "https://bonario-vietnam-20260602.odoo.com/odoo",
+      "db": "bonario-vietnam-20260602",
+      "authMethod": "xmlrpc-api-key",
+      "usernameEnv": "ODOO_PROD_19_USERNAME",
+      "apiKeyEnv": "ODOO_PROD_API_19_KEY",
+      "readOnlyDefault": true,
+      "allowWrite": false,
+      "notes": "Odoo 19 upgrade preview instance. Read-only for comparison."
+    },
+    "prod19new": {
+      "baseUrl": "https://bonario-vietnam-support-20260603-bpan.odoo.com/odoo",
+      "db": null,
+      "inheritAuthFrom": "prod",
+      "authMethod": "xmlrpc-api-key",
+      "deriveDbFromHost": true,
+      "readOnlyDefault": false,
+      "allowWrite": true,
+      "notes": "New Odoo 19 test server with 18.2 data. Full write access for migration testing."
+    },
+    "test1206": {
+      "baseUrl": "https://testing1206.odoo.com/odoo",
+      "db": null,
+      "inheritAuthFrom": "prod",
+      "authMethod": "xmlrpc-api-key",
+      "deriveDbFromHost": true,
+      "readOnlyDefault": false,
+      "allowWrite": true,
+      "notes": "Odoo 19 test server for res.partner tab reorganization."
+    }
+  },
+  "handshakeChecks": [
+    "server_version",
+    "db",
+    "current_user",
+    "model_existence",
+    "field_existence",
+    "write_policy"
+  ]
+}

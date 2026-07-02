@@ -1,0 +1,16 @@
+services:
+  cs-dashboard:
+    build: .
+    container_name: cs-dashboard
+    restart: unless-stopped
+    ports:
+      - "5100:5100"
+    volumes:
+      - ./.env:/app/.env:ro
+    environment:
+      - PYTHONUNBUFFERED=1
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"

@@ -1,0 +1,1161 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CS Dashboard · KPI Customer Service</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Google+Sans:ital,opsz,wght@0,17..18,400..700;1,17..18,400..700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+:root {
+  /* Surfaces (warm-neutral light theme) */
+  --bg: #f5f4f0;
+  --surface: #ffffff;
+  --surface-2: #fafaf7;
+  --card: #ffffff;
+  --border: #e7e4dd;
+  --border-strong: #d6d2c8;
+  --hairline: #eeebe3;
+
+  /* Text */
+  --text: #1a1814;
+  --text-2: #4a463f;
+  --muted: #87807a;
+
+  /* Single accent (teal) */
+  --accent: #0d6b62;
+  --accent-soft: #d6efea;
+  --accent-tint: #ecf7f5;
+
+  /* Status (desaturated, dashboard-appropriate) */
+  --green: #0f7a52;
+  --green-soft: #e3f1eb;
+  --red: #b3341f;
+  --red-soft: #f6e3df;
+  --amber: #b07a13;
+  --amber-soft: #f5ead0;
+  --blue: #2554a8;
+  --blue-soft: #e1e9f5;
+  --purple: #6b46c1;
+  --purple-soft: #ece4f7;
+
+  /* Brand (preserved: BON=green, ORD=blue) */
+  --brand-bon: #0f7a52;
+  --brand-bon-soft: rgba(15,122,82,0.10);
+  --brand-ord: #2554a8;
+  --brand-ord-soft: rgba(37,84,168,0.10);
+
+  /* Shape & motion */
+  --r-card: 16px;
+  --r-kpi: 12px;
+  --r-pill: 999px;
+  --cubic: cubic-bezier(0.32,0.72,0,1);
+
+  /* Tinted shadow (no pure black) */
+  --shadow-sm: 0 1px 2px rgba(40,32,16,0.04);
+  --shadow-md: 0 2px 8px rgba(40,32,16,0.06), 0 1px 2px rgba(40,32,16,0.03);
+  --shadow-lg: 0 4px 16px rgba(40,32,16,0.08);
+}
+
+* { margin:0; padding:0; box-sizing:border-box; }
+html { background: var(--bg); }
+body {
+  font-family: 'Google Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', sans-serif;
+  background: var(--bg); color: var(--text);
+  min-height: 100vh; -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  overflow-x: hidden;
+}
+
+/* ── Top Nav ────────────────────────────────────────────────────────── */
+nav.topbar {
+  position: fixed; top: 20px; left: 50%; transform: translateX(-50%);
+  z-index: 40;
+  background: rgba(255,255,255,0.85);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid var(--border);
+  border-radius: var(--r-pill);
+  padding: 6px;
+  display: flex; align-items: center; gap: 2px;
+  box-shadow: var(--shadow-md);
+}
+nav.topbar select, nav.topbar button {
+  all: unset; font-family: inherit; font-size: 0.8125rem; font-weight: 500;
+  color: var(--text-2); padding: 9px 16px;
+  border-radius: var(--r-pill); cursor: pointer;
+  transition: all 0.25s var(--cubic);
+  white-space: nowrap; letter-spacing: -0.005em;
+}
+nav.topbar select:hover, nav.topbar button:hover { color: var(--text); background: var(--surface-2); }
+nav.topbar .divider { width: 1px; height: 18px; background: var(--border); margin: 0 4px; }
+nav.topbar button.primary {
+  background: var(--text); color: #fff; padding: 9px 18px; font-weight: 600;
+  margin-left: 6px;
+}
+nav.topbar button.primary:hover { background: #000; }
+nav.topbar select option { background: #fff; color: var(--text); }
+input[type="date"] {
+  all: unset; font-family: inherit; font-size: 0.8125rem; font-weight: 500;
+  color: var(--text-2); padding: 9px 14px; border-radius: var(--r-pill);
+  cursor: pointer; transition: all 0.25s var(--cubic);
+  color-scheme: light;
+}
+input[type="date"]:hover { color: var(--text); background: var(--surface-2); }
+input[type="date"]::-webkit-calendar-picker-indicator { filter: opacity(0.55); cursor: pointer; }
+.filter-group { display: flex; align-items: center; gap: 2px; }
+
+/* ── Main Container ─────────────────────────────────────────────────── */
+main { position: relative; z-index: 1; max-width: 1440px; margin: 0 auto; padding: 116px 40px 72px; }
+
+/* ── Hero ───────────────────────────────────────────────────────────── */
+.hero { text-align: left; margin-bottom: 56px; padding: 8px 4px; }
+.hero .eyebrow {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 5px 12px; border-radius: var(--r-pill);
+  background: var(--accent-tint);
+  color: var(--accent);
+  font-size: 0.6875rem; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.14em;
+  margin-bottom: 18px;
+}
+.hero .eyebrow::before {
+  content: ''; width: 6px; height: 6px; border-radius: 50%;
+  background: var(--accent);
+}
+.hero h1 {
+  font-size: clamp(1.875rem, 4.2vw, 2.75rem);
+  font-weight: 700; letter-spacing: -0.025em;
+  line-height: 1.05; color: var(--text);
+  max-width: 18ch;
+}
+.hero h1 .accent { color: var(--accent); }
+.hero .period {
+  font-size: 0.875rem; color: var(--muted);
+  margin-top: 14px; letter-spacing: -0.005em;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Sections ───────────────────────────────────────────────────────── */
+.dashboard-section { margin-bottom: 64px; }
+.dashboard-section:last-child { margin-bottom: 0; }
+
+.section-header {
+  display: flex; align-items: flex-end; justify-content: space-between;
+  gap: 24px; padding: 0 4px 24px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 24px;
+}
+.section-header .title-block { min-width: 0; }
+.section-title {
+  font-size: 1.375rem; font-weight: 700;
+  letter-spacing: -0.018em; color: var(--text);
+  line-height: 1.2; margin-bottom: 6px;
+  /* Hanging indent for the descender of the leading "K" word */
+  padding-top: 2px;
+}
+.section-desc {
+  font-size: 0.875rem; color: var(--muted);
+  letter-spacing: -0.005em; line-height: 1.4;
+}
+.section-meta {
+  font-size: 0.75rem; color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap; flex-shrink: 0;
+}
+.section-meta .dot {
+  display: inline-block; width: 4px; height: 4px;
+  border-radius: 50%; background: var(--muted);
+  margin: 0 8px; vertical-align: middle;
+}
+
+/* ── Grid ───────────────────────────────────────────────────────────── */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 24px;
+}
+.grid > * { opacity: 0; transform: translateY(16px); transition: all 0.7s var(--cubic); }
+.grid > .visible { opacity: 1; transform: translateY(0); }
+
+.span-2 { grid-column: span 2; }
+.span-3 { grid-column: span 3; }
+.span-4 { grid-column: span 4; }
+.row-2 { grid-row: span 2; }
+
+/* ── Card ───────────────────────────────────────────────────────────── */
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--r-card);
+  padding: 28px 28px 24px;
+  box-shadow: var(--shadow-sm);
+  transition: box-shadow 0.3s var(--cubic), border-color 0.3s var(--cubic), transform 0.3s var(--cubic);
+  display: flex; flex-direction: column;
+}
+.card:hover {
+  box-shadow: var(--shadow-md);
+  border-color: var(--border-strong);
+}
+.card .card-head {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; margin-bottom: 20px;
+}
+.card .card-title {
+  font-size: 0.6875rem; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.14em;
+  color: var(--text-2);
+}
+.card .card-tag {
+  font-size: 0.625rem; font-weight: 600;
+  padding: 3px 8px; border-radius: var(--r-pill);
+  background: var(--surface-2); color: var(--muted);
+  text-transform: uppercase; letter-spacing: 0.08em;
+  border: 1px solid var(--border);
+}
+.card .card-tag.bon { background: var(--green-soft); color: var(--brand-bon); border-color: transparent; }
+.card .card-tag.ord { background: var(--blue-soft); color: var(--brand-ord); border-color: transparent; }
+.card .card-body { flex: 1; min-height: 0; }
+
+/* ── KPI Boxes ──────────────────────────────────────────────────────── */
+.kpi-row { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 20px; }
+.kpi-row:last-child { margin-bottom: 0; }
+.kpi-box {
+  flex: 1; min-width: 90px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-kpi);
+  padding: 18px 14px;
+  text-align: center;
+  transition: all 0.25s var(--cubic);
+}
+.kpi-box:hover { background: #fff; border-color: var(--border-strong); }
+.kpi-box .value {
+  font-size: 1.625rem; font-weight: 800;
+  letter-spacing: -0.02em; line-height: 1.05;
+  font-variant-numeric: tabular-nums;
+}
+.kpi-box .label {
+  font-size: 0.6875rem; color: var(--muted);
+  margin-top: 6px; letter-spacing: -0.005em; line-height: 1.35;
+}
+.val-green { color: var(--green); }
+.val-red { color: var(--red); }
+.val-amber { color: var(--amber); }
+.val-blue { color: var(--blue); }
+.val-purple { color: var(--purple); }
+.val-accent { color: var(--accent); }
+
+/* ── Chart wrap ─────────────────────────────────────────────────────── */
+.chart-wrap { position: relative; height: 220px; width: 100%; }
+.chart-wrap.tall { height: 260px; }
+.chart-wrap.short { height: 180px; }
+
+/* ── Brand split (Bonario / Ordinaire) ─────────────────────────────── */
+.brand-split { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+.brand-col { min-width: 0; }
+.brand-col .brand-head {
+  display: flex; align-items: center; gap: 8px;
+  margin-bottom: 14px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--hairline);
+}
+.brand-col .brand-mark {
+  width: 8px; height: 8px; border-radius: 2px;
+}
+.brand-col.bon .brand-mark { background: var(--brand-bon); }
+.brand-col.ord .brand-mark { background: var(--brand-ord); }
+.brand-col .brand-name {
+  font-size: 0.8125rem; font-weight: 700;
+  letter-spacing: -0.005em; color: var(--text);
+}
+
+/* ── Dual chart stack ───────────────────────────────────────────────── */
+.chart-stack { display: flex; flex-direction: column; gap: 24px; }
+.chart-stack .chart-wrap { height: 200px; }
+
+/* ── Tables ─────────────────────────────────────────────────────────── */
+.tbl-wrap { overflow-x: auto; margin-top: 4px; }
+table { width: 100%; border-collapse: collapse; font-size: 0.8125rem; }
+th {
+  text-align: left; padding: 10px 12px;
+  color: var(--muted); font-weight: 600;
+  font-size: 0.6875rem; text-transform: uppercase; letter-spacing: 0.1em;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-2);
+}
+th:first-child { border-top-left-radius: 8px; }
+th:last-child { border-top-right-radius: 8px; }
+td {
+  padding: 12px;
+  border-bottom: 1px solid var(--hairline);
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+tr:last-child td { border-bottom: none; }
+tr:hover td { background: var(--surface-2); }
+
+/* ── Empty state ────────────────────────────────────────────────────── */
+.empty {
+  padding: 36px 20px; text-align: center;
+  color: var(--muted); font-size: 0.8125rem;
+  background: var(--surface-2);
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--r-kpi);
+}
+
+/* ── Loading ────────────────────────────────────────────────────────── */
+.loading-overlay {
+  position: fixed; inset: 0;
+  background: rgba(245,244,240,0.7);
+  backdrop-filter: blur(8px);
+  z-index: 50;
+  display: flex; align-items: center; justify-content: center;
+  flex-direction: column; gap: 14px;
+  opacity: 0; pointer-events: none;
+  transition: opacity 0.3s var(--cubic);
+}
+.loading-overlay.active { opacity: 1; pointer-events: auto; }
+.loading-ring {
+  width: 36px; height: 36px;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+.loading-text { font-size: 0.8125rem; color: var(--muted); letter-spacing: -0.005em; }
+
+/* ── Skeleton ───────────────────────────────────────────────────────── */
+.skeleton {
+  background: linear-gradient(90deg, var(--surface-2) 25%, var(--hairline) 50%, var(--surface-2) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 6px;
+}
+@keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+@keyframes spin { to { transform: rotate(360deg); } }
+.sk-card { background: #fff; border: 1px solid var(--border); border-radius: var(--r-card); padding: 28px; }
+.sk-head { width: 40%; height: 10px; margin-bottom: 20px; }
+.sk-row { display: flex; gap: 12px; margin-bottom: 16px; }
+.sk-kpi { flex: 1; height: 70px; border-radius: var(--r-kpi); }
+.sk-chart { height: 200px; border-radius: 8px; }
+
+/* ── Footer ─────────────────────────────────────────────────────────── */
+footer {
+  text-align: center; padding: 40px 24px 32px;
+  color: var(--muted); font-size: 0.75rem;
+  letter-spacing: -0.005em;
+  border-top: 1px solid var(--border);
+  margin-top: 24px;
+}
+footer .sep { margin: 0 10px; opacity: 0.4; }
+
+/* ── Mobile ─────────────────────────────────────────────────────────── */
+@media (max-width: 1024px) {
+  .grid { grid-template-columns: repeat(2, 1fr); }
+  .span-2, .span-3, .span-4 { grid-column: span 2; }
+  .row-2 { grid-row: span 1; }
+}
+@media (max-width: 768px) {
+  main { padding: 100px 16px 48px; }
+  nav.topbar {
+    flex-wrap: wrap; justify-content: center;
+    border-radius: 20px; padding: 8px;
+    top: 12px; left: 12px; right: 12px;
+    transform: none; width: calc(100% - 24px);
+  }
+  nav.topbar select, nav.topbar button { font-size: 0.75rem; padding: 8px 12px; }
+  nav.topbar button.primary { font-size: 0.75rem; padding: 8px 14px; }
+  nav.topbar button.export { font-size: 0.75rem; padding: 7px 12px; }
+  .grid { grid-template-columns: 1fr; gap: 16px; }
+  .span-2, .span-3, .span-4 { grid-column: span 1; grid-row: span 1; }
+  .brand-split { grid-template-columns: 1fr; gap: 16px; }
+  .kpi-row { gap: 8px; }
+  .kpi-box { min-width: 70px; padding: 12px 8px; }
+  .kpi-box .value { font-size: 1.25rem; }
+  .kpi-box .label { font-size: 0.625rem; }
+  .card { padding: 20px 16px 16px; }
+  .hero h1 { font-size: 1.625rem; }
+  .section-header { flex-direction: column; align-items: flex-start; gap: 8px; }
+  .section-meta { white-space: normal; }
+  .chart-wrap { height: 200px; }
+  .chart-wrap.tall { height: 220px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+</style>
+</head>
+<body>
+
+<nav class="topbar">
+  <select id="team-select" aria-label="Lọc theo team">
+    <option value="all">Tất cả team</option>
+    <option value="ord">Khách Ordinaire</option>
+    <option value="bon">Khách Bonario</option>
+  </select>
+  <span class="divider"></span>
+  <select id="mode-select" aria-label="Chế độ lọc">
+    <option value="range">Theo khoảng thời gian</option>
+    <option value="date">Theo ngày cụ thể</option>
+  </select>
+  <span class="filter-group" id="range-filter">
+    <select id="month-select" aria-label="Số tháng">
+      <option value="1">1 tháng</option>
+      <option value="3">3 tháng</option>
+      <option value="6">6 tháng</option>
+      <option value="12">12 tháng</option>
+    </select>
+  </span>
+  <span class="filter-group" id="month-filter" style="display:none">
+    <input type="date" id="month-picker" aria-label="Chọn ngày">
+  </span>
+  <button onclick="loadData()" aria-label="Làm mới dữ liệu">Làm mới</button>
+  <button class="export" onclick="exportPdf(this)" aria-label="Xuất báo cáo PDF">
+    <span class="export-label">Xuất PDF</span>
+    <span class="export-spin" aria-hidden="true"></span>
+  </button>
+</nav>
+
+<main>
+  <header class="hero">
+    <div class="eyebrow">KPI Dashboard</div>
+    <h1>Hiệu quả <span class="accent">Customer Service</span></h1>
+    <div class="period" id="period-label">Đang tải...</div>
+  </header>
+
+  <!-- Section 1: Khiếu nại & Bảo hành -->
+  <section class="dashboard-section" aria-labelledby="sec-complaint-warranty">
+    <div class="section-header">
+      <div class="title-block">
+        <h2 id="sec-complaint-warranty" class="section-title">Khiếu nại &amp; Bảo hành</h2>
+        <p class="section-desc">Tỷ lệ xử lý đúng lần đầu và các nguyên nhân phổ biến theo từng Brand.</p>
+      </div>
+    </div>
+    <div class="grid" id="sec-1-grid"></div>
+  </section>
+
+  <!-- Section 2: Khảo sát khách hàng -->
+  <section class="dashboard-section" aria-labelledby="sec-csat">
+    <div class="section-header">
+      <div class="title-block">
+        <h2 id="sec-csat" class="section-title">Khảo sát khách hàng</h2>
+        <p class="section-desc">Điểm hài lòng, tỷ lệ phản hồi và phân bố mức độ hài lòng theo Brand.</p>
+      </div>
+    </div>
+    <div class="grid" id="sec-2-grid"></div>
+  </section>
+
+  <!-- Section 3: Hành vi mua hàng -->
+  <section class="dashboard-section" aria-labelledby="sec-purchase">
+    <div class="section-header">
+      <div class="title-block">
+        <h2 id="sec-purchase" class="section-title">Hành vi mua hàng</h2>
+        <p class="section-desc">Tỷ lệ mua lại sau khiếu nại và tỷ lệ khách có đơn hàng trong kỳ.</p>
+      </div>
+    </div>
+    <div class="grid" id="sec-3-grid"></div>
+  </section>
+
+  <!-- Section 4: Vận hành & SLA -->
+  <section class="dashboard-section" aria-labelledby="sec-ops">
+    <div class="section-header">
+      <div class="title-block">
+        <h2 id="sec-ops" class="section-title">Vận hành &amp; SLA</h2>
+        <p class="section-desc">Giao hàng đúng hẹn, tiến độ BD và tỷ lệ hoàn thành SLA của đội CSKH.</p>
+      </div>
+    </div>
+    <div class="grid" id="sec-4-grid"></div>
+  </section>
+</main>
+
+<footer>
+  Powered by Odoo<span class="sep">/</span>Tự động làm mới mỗi 5 phút<span class="sep">/</span>CS Dashboard
+</footer>
+
+<div class="loading-overlay" id="loading-overlay" aria-hidden="true">
+  <div class="loading-ring"></div>
+  <div class="loading-text">Đang tải dữ liệu...</div>
+</div>
+
+<script>
+let charts = {};
+
+function destroyCharts() { Object.values(charts).forEach(c => c.destroy()); charts = {}; }
+
+// ── Card & KPI primitives ────────────────────────────────────────────
+function card(title, body, opts = {}) {
+  const tag = opts.tag ? `<span class="card-tag ${opts.tagClass||''}">${opts.tag}</span>` : '';
+  return `<div class="card">
+    <div class="card-head">
+      <div class="card-title">${title}</div>
+      ${tag}
+    </div>
+    <div class="card-body">${body}</div>
+  </div>`;
+}
+
+function kpi(label, value, cls) {
+  return `<div class="kpi-box">
+    <div class="value ${cls||''}">${value}</div>
+    <div class="label">${label}</div>
+  </div>`;
+}
+
+function chartWrap(id, height) {
+  const cls = height === 'tall' ? 'chart-wrap tall' : height === 'short' ? 'chart-wrap short' : 'chart-wrap';
+  return `<div class="${cls}"><canvas id="${id}"></canvas></div>`;
+}
+
+function emptyState(msg) {
+  return `<div class="empty">${msg}</div>`;
+}
+
+// ── Section 1: Khiếu nại & Bảo hành ──────────────────────────────────
+function renderComplaintCard(d) {
+  return card('Khiếu nại / First Contact Resolution',
+    `<div class="kpi-row">
+      ${kpi('FCR Rate', d.fcr_rate+'%', d.fcr_rate>=80?'val-green':'val-amber')}
+      ${kpi('Repeat Rate', d.repeat_rate+'%', d.repeat_rate>30?'val-red':'val-green')}
+      ${kpi('Tổng case', d.total, 'val-accent')}
+      ${kpi('Tháng này', d.this_month, '')}
+    </div>
+    <div class="chart-wrap">${chartWrap('chart-complaint-monthly')}</div>`,
+    { tag: 'Complaints' }
+  );
+}
+
+function renderTopReasonsCard(brand, brandName, reasons) {
+  const tagClass = brand === 'BON' ? 'bon' : 'ord';
+  return card(`Top nguyên nhân / ${brandName}`,
+    reasons.length
+      ? chartWrap(`chart-complaint-reasons-${brand.toLowerCase()}`)
+      : emptyState(`Chưa có dữ liệu ${brandName}`),
+    { tag: brand, tagClass }
+  );
+}
+
+function renderWarrantyCard(d) {
+  return card('Bảo hành / First Time Fix',
+    `<div class="kpi-row">
+      ${kpi('First Fix', d.first_fix_rate+'%', d.first_fix_rate>=80?'val-green':'val-amber')}
+      ${kpi('Repeat Repair', d.repeat_repair_rate+'%', d.repeat_repair_rate>30?'val-red':'val-green')}
+      ${kpi('Tổng case', d.total, 'val-amber')}
+      ${kpi('Tháng này', d.this_month, '')}
+    </div>
+    <div class="chart-wrap">${chartWrap('chart-warranty-monthly')}</div>`,
+    { tag: 'Warranty' }
+  );
+}
+
+function renderWarrantyReasonsCard(brand, brandName, reasons) {
+  const tagClass = brand === 'BON' ? 'bon' : 'ord';
+  return card(`Top nguyên nhân bảo hành / ${brandName}`,
+    reasons.length
+      ? chartWrap(`chart-warranty-reasons-${brand.toLowerCase()}`)
+      : emptyState(`Chưa có dữ liệu ${brandName}`),
+    { tag: brand, tagClass }
+  );
+}
+
+// ── Section 2: Khảo sát khách hàng ───────────────────────────────────
+function renderCSATOverall(d) {
+  const cls = d.score >= 8 ? 'val-green' : d.score >= 6 ? 'val-amber' : 'val-red';
+  return card('CSAT tổng quan',
+    `<div class="kpi-row">
+      ${kpi('Điểm TB', d.score+'/10', cls)}
+      ${kpi('Tỷ lệ đánh giá', (d.response_rate ?? 0)+'%', 'val-blue')}
+      ${kpi('Đã đánh giá', d.rated, 'val-accent')}
+      ${kpi('Tổng ticket', d.total, '')}
+    </div>`,
+    { tag: 'CSAT' }
+  );
+}
+
+function brandHead(brand, label) {
+  return `<div class="brand-head">
+    <span class="brand-mark"></span>
+    <span class="brand-name">${label}</span>
+  </div>`;
+}
+
+function renderCSATByBrand(d) {
+  if (!d) return '';
+  const block = (brand, label, x) => `
+    <div class="brand-col ${brand === 'BON' ? 'bon' : 'ord'}">
+      ${brandHead(brand, label)}
+      <div class="kpi-row">
+        ${kpi('Score', (x.score ?? 0)+'/10', csatColor(x.score ?? 0))}
+        ${kpi('Response', (x.response_rate ?? 0)+'%', rateColor(x.response_rate ?? 0, 30))}
+        ${kpi('Perfect 10', (x.perfect_rate ?? 0)+'%', rateColor(x.perfect_rate ?? 0, 60))}
+        ${kpi('Rated/Total', (x.rated ?? 0)+'/'+(x.total ?? 0), '')}
+      </div>
+    </div>`;
+  return card('CSAT theo Brand',
+    `<div class="brand-split">
+        ${block('BON', 'Bonario Vietnam', d.BON || {})}
+        ${block('ORD', 'Ordinaire Vietnam', d.ORD || {})}
+      </div>
+      <div class="chart-wrap" style="margin-top:20px">${chartWrap('chart-csat-perfect')}</div>`,
+    { tag: 'Score trend' }
+  );
+}
+
+function renderSatisfaction(d) {
+  if (!d) return '';
+  const block = (brand, label, x) => `
+    <div class="brand-col ${brand === 'BON' ? 'bon' : 'ord'}">
+      ${brandHead(brand, label)}
+      <div class="kpi-row">
+        ${kpi('Hài lòng', x.satisfied||0, 'val-green')}
+        ${kpi('Trung bình', x.neutral||0, 'val-amber')}
+        ${kpi('Không hài lòng', x.unsatisfied||0, 'val-red')}
+        ${kpi('Tổng rated', x.total_rated||0, '')}
+      </div>
+    </div>`;
+  return card('Phân bố mức độ hài lòng',
+    `<div class="brand-split">
+      ${block('BON', 'Bonario Vietnam', d.BON||{})}
+      ${block('ORD', 'Ordinaire Vietnam', d.ORD||{})}
+    </div>`,
+    { tag: 'Distribution' }
+  );
+}
+
+// ── Section 3: Hành vi mua hàng ──────────────────────────────────────
+function renderRetention(d) {
+  return card('Khách hàng quay lại sau khiếu nại',
+    `<div class="kpi-row">
+      ${kpi('Tỷ lệ mua lại', d.rate+'%', d.rate>=80?'val-green':'val-amber')}
+      ${kpi('Khách mua lại', d.retained, 'val-green')}
+      ${kpi('Tổng khiếu nại', d.total_complainers, 'val-blue')}
+    </div>`,
+    { tag: 'Retention' }
+  );
+}
+
+function renderRates(d) {
+  if (!d) return '';
+  return card('Tỷ lệ đánh giá & đơn hàng theo tháng',
+    `<div class="chart-stack">
+      <div>${chartWrap('chart-response-rate')}</div>
+      <div>${chartWrap('chart-order-rate')}</div>
+    </div>`,
+    { tag: 'Response · Order' }
+  );
+}
+
+function renderPurchase(d) {
+  const overall = `
+    <div class="kpi-row" style="margin-bottom:20px">
+      ${kpi('Khách cũ quay lại', d.cross_year_returnees||0, 'val-green')}
+      ${kpi('Mua lặp cùng năm', (d.same_year_repeat||0)+'/'+(d.this_year_buyers||0), 'val-blue')}
+      ${kpi('Giá trị ĐTB', Number(d.avg_order_value||0).toLocaleString('vi-VN'), 'val-amber')}
+      ${kpi('Tổng đơn', d.total_orders||0, '')}
+    </div>`;
+  const block = (brand, label, x) => `
+    <div class="brand-col ${brand === 'BON' ? 'bon' : 'ord'}">
+      ${brandHead(brand, label)}
+      <div class="kpi-row">
+        ${kpi('Khách cũ', x.cross_year_returnees||0, 'val-green')}
+        ${kpi('Lặp cùng năm', (x.same_year_repeat||0)+'/'+(x.this_year_buyers||0), 'val-blue')}
+        ${kpi('Giá trị ĐTB', Number(x.avg_order_value||0).toLocaleString('vi-VN'), 'val-amber')}
+        ${kpi('Tổng đơn', x.total_orders||0, '')}
+      </div>
+    </div>`;
+  const byBrand = (d && d.by_brand) || {};
+  return card('Hành vi mua hàng theo Brand',
+    overall
+    + `<div class="brand-split" style="margin-bottom:20px">
+        ${block('BON', 'Bonario Vietnam', byBrand.BON||{})}
+        ${block('ORD', 'Ordinaire Vietnam', byBrand.ORD||{})}
+      </div>`
+    + `<div class="chart-wrap">${chartWrap('chart-purchase-monthly')}</div>`,
+    { tag: 'Purchase' }
+  );
+}
+
+// ── Section 4: Vận hành & SLA ────────────────────────────────────────
+function renderDelivery(d) {
+  const bon = d.bonario || {}, ord = d.ordinaire || {};
+  return card('Giao hàng đúng lịch (GH-KH vs BD)',
+    `<div class="brand-split">
+      <div class="brand-col bon">
+        ${brandHead('BON', 'Bonario Vietnam')}
+        <div class="kpi-row">
+          ${kpi('Đúng lịch', (bon.rate ?? 0)+'%', (bon.rate ?? 0)>=80?'val-green':'val-amber')}
+          ${kpi('Đúng hạn', bon.on_time||0, 'val-green')}
+          ${kpi('Trễ hạn', bon.late||0, 'val-red')}
+          ${kpi('Tổng SO', bon.total||0, '')}
+        </div>
+      </div>
+      <div class="brand-col ord">
+        ${brandHead('ORD', 'Ordinaire Vietnam')}
+        <div class="kpi-row">
+          ${kpi('Đúng lịch', (ord.rate ?? 0)+'%', (ord.rate ?? 0)>=80?'val-green':'val-amber')}
+          ${kpi('Đúng hạn', ord.on_time||0, 'val-green')}
+          ${kpi('Trễ hạn', ord.late||0, 'val-red')}
+          ${kpi('Tổng SO', ord.total||0, '')}
+        </div>
+      </div>
+    </div>`,
+    { tag: 'Delivery' }
+  );
+}
+
+function renderBDProgress(d) {
+  return card('BD / Tiến độ dự kiến',
+    `<div class="kpi-row">
+      ${kpi('Đúng tiến độ', d.rate+'%', d.rate>=80?'val-green':'val-amber')}
+      ${kpi('Đúng hạn', d.on_time||0, 'val-green')}
+      ${kpi('Trễ hạn', d.late||0, 'val-red')}
+      ${kpi('Tổng', d.total||0, '')}
+    </div>`,
+    { tag: 'BD' }
+  );
+}
+
+function renderSLA(d) {
+  const users = d.users || [];
+  const rows = users.map(u => `
+    <tr>
+      <td style="font-weight:600">${u.name}</td>
+      <td style="color:${u.rate>=80?'var(--green)':u.rate>=50?'var(--amber)':'var(--red)'}; font-weight:700">${u.rate}%</td>
+      <td>${u.total}</td>
+      <td>${u.success}</td>
+    </tr>
+  `).join('') || `<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:24px">Chưa có dữ liệu</td></tr>`;
+  return card('SLA CSKH / Tỷ lệ hoàn thành',
+    `<div class="kpi-row">
+      ${kpi('Team SLA', d.team_rate+'%', d.team_rate>=80?'val-green':'val-amber')}
+      ${kpi('Đạt SLA', d.team_success, 'val-blue')}
+      ${kpi('Tổng ticket', d.team_total, '')}
+    </div>
+    <div class="tbl-wrap"><table>
+      <thead><tr><th>Nhân sự</th><th>SLA Rate</th><th>Tổng</th><th>Đạt</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table></div>`,
+    { tag: 'SLA' }
+  );
+}
+
+// ── Color helpers ────────────────────────────────────────────────────
+function csatColor(score) { return score >= 8 ? 'val-green' : score >= 6 ? 'val-amber' : 'val-red'; }
+function rateColor(rate, threshold) {
+  return rate >= threshold ? 'val-green' : rate >= threshold * 0.6 ? 'val-amber' : 'val-red';
+}
+
+// ── Section renderers ────────────────────────────────────────────────
+function renderSection1(d) {
+  const c = d.complaints, w = d.warranty;
+  const crByBrand = (c.top5_reasons_by_brand) || {};
+  const wrByBrand = (w.top5_reasons_by_brand) || {};
+  return [
+    `<div class="span-2 row-2">${renderComplaintCard(c)}</div>`,
+    `<div class="span-2">${renderTopReasonsCard('BON', 'Bonario', crByBrand.BON || [])}</div>`,
+    `<div class="span-2">${renderTopReasonsCard('ORD', 'Ordinaire', crByBrand.ORD || [])}</div>`,
+    `<div class="span-2 row-2">${renderWarrantyCard(w)}</div>`,
+    `<div class="span-2">${renderWarrantyReasonsCard('BON', 'Bonario', wrByBrand.BON || [])}</div>`,
+    `<div class="span-2">${renderWarrantyReasonsCard('ORD', 'Ordinaire', wrByBrand.ORD || [])}</div>`,
+  ].join('');
+}
+
+function renderSection2(d) {
+  return [
+    `<div class="span-2">${renderCSATOverall(d.csat)}</div>`,
+    `<div class="span-2">${renderSatisfaction(d.satisfaction)}</div>`,
+    `<div class="span-4">${renderCSATByBrand(d.csat_by_brand)}</div>`,
+  ].join('');
+}
+
+function renderSection3(d) {
+  return [
+    `<div class="span-2">${renderRetention(d.retention)}</div>`,
+    `<div class="span-2">${renderRates(d.rates)}</div>`,
+    `<div class="span-4">${renderPurchase(d.purchase)}</div>`,
+  ].join('');
+}
+
+function renderSection4(d) {
+  return [
+    `<div class="span-4">${renderDelivery(d.delivery)}</div>`,
+    `<div class="span-2">${renderBDProgress(d.bd_progress)}</div>`,
+    `<div class="span-2">${renderSLA(d.sla)}</div>`,
+  ].join('');
+}
+
+// ── Chart helpers (light theme) ──────────────────────────────────────
+const CHART_TICK = '#87807a';
+const CHART_GRID = 'rgba(40,32,16,0.06)';
+const CHART_TEXT = '#1a1814';
+const CHART_TEXT_LIGHT = '#4a463f';
+
+// Google Sans for chart canvas text: matches page font, full Vietnamese support,
+// no dependency on web-font load timing (canvas doesn't auto-redraw on font swap).
+const CHART_FONT = "'Google Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif";
+const CHART_TICK_SIZE = 12;
+
+const BRAND_COLORS = {
+  BON: { line: '#0f7a52', fill: 'rgba(15,122,82,0.10)', bar: 'rgba(15,122,82,0.70)' },
+  ORD: { line: '#2554a8', fill: 'rgba(37,84,168,0.10)', bar: 'rgba(37,84,168,0.70)' },
+};
+const TOP5_COLORS = ['#b3341f', '#b07a13', '#6b46c1', '#0f7a52', '#2554a8'];
+
+// Lock chart-wide defaults so every chart picks them up without per-instance repetition.
+if (window.Chart) {
+  Chart.defaults.font.family = CHART_FONT;
+  Chart.defaults.font.size = CHART_TICK_SIZE;
+  Chart.defaults.font.weight = 500;
+  Chart.defaults.color = CHART_TICK;
+  Chart.defaults.devicePixelRatio = window.devicePixelRatio || 1;
+  Chart.defaults.borderColor = CHART_GRID;
+}
+
+function defaultChartOpts(extra = {}) {
+  return {
+    responsive: true, maintainAspectRatio: false,
+    devicePixelRatio: window.devicePixelRatio || 1,
+    animation: { duration: 350 },
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        backgroundColor: '#1a1814', titleColor: '#fafaf7', bodyColor: '#fafaf7',
+        borderColor: '#1a1814', borderWidth: 1, padding: 10,
+        cornerRadius: 8, displayColors: true, boxPadding: 4,
+        titleFont: { family: CHART_FONT, weight: 700, size: 13 },
+        bodyFont: { family: CHART_FONT, weight: 500, size: 12 },
+      },
+    },
+    scales: {
+      x: { grid: { color: CHART_GRID, drawBorder: false }, ticks: { color: CHART_TICK, font: { family: CHART_FONT, size: CHART_TICK_SIZE, weight: 500 }, padding: 4 } },
+      y: { grid: { color: CHART_GRID, drawBorder: false }, ticks: { color: CHART_TICK, font: { family: CHART_FONT, size: CHART_TICK_SIZE, weight: 500 }, padding: 6 }, beginAtZero: true },
+    },
+    ...extra,
+  };
+}
+
+function drawTopReasons(canvasId, reasons) {
+  const el = document.getElementById(canvasId);
+  if (!el || !reasons || !reasons.length) return;
+  charts[canvasId] = new Chart(el, {
+    type: 'bar',
+    data: {
+      labels: reasons.map(r => r.reason),
+      datasets: [{ data: reasons.map(r => r.count), backgroundColor: TOP5_COLORS, borderRadius: 6, borderSkipped: false, maxBarThickness: 22 }]
+    },
+    options: (() => {
+      const o = defaultChartOpts();
+      o.indexAxis = 'y';
+      o.scales.x.grid.display = false;
+      o.scales.y.grid.display = false;
+      o.scales.x.ticks.display = true;
+      o.scales.y.ticks.color = CHART_TEXT;
+      o.scales.y.ticks.font = { family: CHART_FONT, size: 12, weight: 500 };
+      o.scales.y.ticks.padding = 8;
+      return o;
+    })(),
+  });
+}
+
+function drawBar(canvasId, labels, data, color) {
+  const el = document.getElementById(canvasId);
+  if (!el) return;
+  charts[canvasId] = new Chart(el, {
+    type: 'bar',
+    data: { labels, datasets: [{ data, backgroundColor: color, borderRadius: 6, borderSkipped: false, maxBarThickness: 28 }] },
+    options: defaultChartOpts(),
+  });
+}
+
+function drawLine(canvasId, labels, data, color, fillColor) {
+  const el = document.getElementById(canvasId);
+  if (!el) return;
+  charts[canvasId] = new Chart(el, {
+    type: 'line',
+    data: { labels, datasets: [{ data, borderColor: color, backgroundColor: fillColor, fill: true, tension: 0.4, borderWidth: 2, pointRadius: 3, pointHoverRadius: 5, pointBackgroundColor: color, pointBorderColor: '#fff', pointBorderWidth: 1.5 }] },
+    options: defaultChartOpts(),
+  });
+}
+
+function drawMultiLine(canvasId, labels, series) {
+  const el = document.getElementById(canvasId);
+  if (!el) return;
+  const datasets = series.map(s => ({
+    label: s.label,
+    data: s.data,
+    borderColor: BRAND_COLORS[s.key].line,
+    backgroundColor: BRAND_COLORS[s.key].fill,
+    borderWidth: 2, tension: 0.4, fill: true,
+    pointRadius: 3, pointHoverRadius: 5,
+    pointBackgroundColor: BRAND_COLORS[s.key].line,
+    pointBorderColor: '#fff', pointBorderWidth: 1.5,
+  }));
+  charts[canvasId] = new Chart(el, {
+    type: 'line',
+    data: { labels, datasets },
+    options: (() => {
+      const o = defaultChartOpts();
+      o.plugins.legend = { display: true, position: 'top', align: 'end', labels: { color: CHART_TEXT_LIGHT, boxWidth: 8, boxHeight: 8, font: { family: CHART_FONT, size: 13, weight: 600 }, usePointStyle: true, pointStyle: 'circle', padding: 12 } };
+      return o;
+    })(),
+  });
+}
+
+function drawGroupedBar(canvasId, labels, series) {
+  const el = document.getElementById(canvasId);
+  if (!el) return;
+  const datasets = series.map(s => ({
+    label: s.label, data: s.data,
+    backgroundColor: BRAND_COLORS[s.key].bar,
+    borderRadius: 6, borderSkipped: false, maxBarThickness: 24,
+  }));
+  charts[canvasId] = new Chart(el, {
+    type: 'bar',
+    data: { labels, datasets },
+    options: (() => {
+      const o = defaultChartOpts();
+      o.plugins.legend = { display: true, position: 'top', align: 'end', labels: { color: CHART_TEXT_LIGHT, boxWidth: 8, boxHeight: 8, font: { family: CHART_FONT, size: 13, weight: 600 }, usePointStyle: true, pointStyle: 'circle', padding: 12 } };
+      return o;
+    })(),
+  });
+}
+
+function drawCharts(data) {
+  // Section 1: Complaints
+  const cm = data.complaints.monthly_trend || [];
+  drawBar('chart-complaint-monthly', cm.map(m => m.month), cm.map(m => m.count), 'rgba(13,107,98,0.65)');
+  const crByBrand = (data.complaints.top5_reasons_by_brand) || {};
+  drawTopReasons('chart-complaint-reasons-bon', crByBrand.BON || []);
+  drawTopReasons('chart-complaint-reasons-ord', crByBrand.ORD || []);
+
+  // Section 1: Warranty
+  const wm = data.warranty.monthly_trend || [];
+  drawLine('chart-warranty-monthly', wm.map(m => m.month), wm.map(m => m.count), '#b07a13', 'rgba(176,122,19,0.10)');
+  const wrByBrand = (data.warranty.top5_reasons_by_brand) || {};
+  drawTopReasons('chart-warranty-reasons-bon', wrByBrand.BON || []);
+  drawTopReasons('chart-warranty-reasons-ord', wrByBrand.ORD || []);
+
+  // Section 2: CSAT trend
+  const csat = data.csat_by_brand || {};
+  drawMultiLine('chart-csat-perfect', csat.months || [], [
+    { key: 'BON', label: 'Bonario', data: ((csat.BON && csat.BON.monthly) || []).map(m => m.perfect_rate) },
+    { key: 'ORD', label: 'Ordinaire', data: ((csat.ORD && csat.ORD.monthly) || []).map(m => m.perfect_rate) },
+  ]);
+
+  // Section 3: Rates
+  const rates = data.rates || {};
+  drawMultiLine('chart-response-rate', rates.months || [], [
+    { key: 'BON', label: 'Bonario', data: (rates.BON || []).map(m => m.response_rate) },
+    { key: 'ORD', label: 'Ordinaire', data: (rates.ORD || []).map(m => m.response_rate) },
+  ]);
+  drawMultiLine('chart-order-rate', rates.months || [], [
+    { key: 'BON', label: 'Bonario', data: (rates.BON || []).map(m => m.order_rate) },
+    { key: 'ORD', label: 'Ordinaire', data: (rates.ORD || []).map(m => m.order_rate) },
+  ]);
+
+  // Section 3: Purchase
+  const pm = (data.purchase || {}).monthly_orders_by_brand || {};
+  const monthLabels = (pm.BON || []).map(m => m.month);
+  drawGroupedBar('chart-purchase-monthly', monthLabels, [
+    { key: 'BON', label: 'Bonario', data: (pm.BON || []).map(m => m.count) },
+    { key: 'ORD', label: 'Ordinaire', data: (pm.ORD || []).map(m => m.count) },
+  ]);
+}
+
+// ── Reveal animation ─────────────────────────────────────────────────
+function revealCards() {
+  document.querySelectorAll('.grid > div').forEach((el, i) => {
+    setTimeout(() => el.classList.add('visible'), i * 50);
+  });
+}
+
+// ── Loading overlay ──────────────────────────────────────────────────
+function showLoading() { document.getElementById('loading-overlay').classList.add('active'); }
+function hideLoading() { document.getElementById('loading-overlay').classList.remove('active'); }
+
+// ── Skeletons ────────────────────────────────────────────────────────
+function renderSkeletons() {
+  let html = '';
+  for (let i = 0; i < 6; i++) {
+    const cls = i < 2 ? 'span-2 row-2' : 'span-2';
+    html += `<div class="${cls}"><div class="sk-card">
+      <div class="sk-head skeleton"></div>
+      <div class="sk-row"><div class="sk-kpi skeleton"></div><div class="sk-kpi skeleton"></div><div class="sk-kpi skeleton"></div><div class="sk-kpi skeleton"></div></div>
+      <div class="sk-chart skeleton"></div>
+    </div></div>`;
+  }
+  return html;
+}
+
+// ── Load ─────────────────────────────────────────────────────────────
+function syncFilterVisibility() {
+  const mode = document.getElementById('mode-select').value;
+  document.getElementById('range-filter').style.display = mode === 'range' ? '' : 'none';
+  document.getElementById('month-filter').style.display = mode === 'date' ? '' : 'none';
+}
+
+function defaultMonthValue() {
+  // ISO date string YYYY-MM-DD; treated as month anchor in backend (start of month)
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`;
+}
+
+// Build the current filter query string — reused by loadData and exportPdf.
+function currentFilterParams() {
+  const team = document.getElementById('team-select').value;
+  const mode = document.getElementById('mode-select').value;
+  const months = document.getElementById('month-select').value;
+  const date = document.getElementById('month-picker').value || defaultMonthValue();
+  let qs = `team=${team}&mode=${mode}&months=${months}`;
+  if (mode === 'date') qs += `&date=${date}`;
+  return qs;
+}
+
+// Render every Chart.js instance currently on the page to a base64 PNG data
+// URL. Returns { shortId: "data:image/png;base64,..." } where shortId is the
+// canvas id with the "chart-" prefix stripped (matches the keys the report
+// template uses: complaint_monthly, csat_perfect, etc.).
+function captureChartImages() {
+  const out = {};
+  let skipped = 0;
+  document.querySelectorAll('canvas').forEach(canvas => {
+    if (!canvas.id) { skipped++; return; }
+    try {
+      const chart = Chart.getChart(canvas);
+      if (!chart) { skipped++; return; }
+      chart.options.animation = false;
+      chart.update('none');
+      // quality=1 keeps full PNG. WeasyPrint will rasterize at print DPI so
+      // the embedded image stays crisp regardless of the chart's screen size.
+      const dataUrl = chart.toBase64Image('image/png', 1);
+      if (dataUrl && dataUrl.length > 100) {
+        // Strip "chart-" prefix and convert dashes to underscores so keys match
+        // the report template: chart-complaint-monthly → complaint_monthly
+        const shortId = canvas.id.replace(/^chart-/, '').replace(/-/g, '_');
+        out[shortId] = dataUrl;
+      } else {
+        skipped++;
+      }
+    } catch (e) {
+      console.warn('chart capture failed:', canvas.id, e);
+      skipped++;
+    }
+  });
+  console.log(`Captured ${Object.keys(out).length} charts, skipped ${skipped}`);
+  return out;
+}
+
+// Trigger a PDF download for the currently-selected filters. The button shows
+// a spinner + disables itself while we (1) render every chart to a base64 PNG,
+// (2) POST to /api/export.pdf with filter + chart images, and (3) download
+// the resulting PDF blob.
+async function exportPdf(btn) {
+  if (btn.disabled) return;
+  btn.disabled = true;
+  btn.classList.add('is-loading');
+  const originalLabel = btn.querySelector('.export-label').textContent;
+  btn.querySelector('.export-label').textContent = 'Đang xuất...';
+  try {
+    const chartImages = captureChartImages();
+    const filters = (() => {
+      const p = new URLSearchParams(currentFilterParams());
+      return Object.fromEntries(p.entries());
+    })();
+    const resp = await fetch('/api/export.pdf', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ filters, chartImages }),
+    });
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const blob = await resp.blob();
+    // Read filename from Content-Disposition if server set it, else build one.
+    const cd = resp.headers.get('Content-Disposition') || '';
+    const m = cd.match(/filename="?([^";]+)"?/);
+    const filename = m ? m[1] : 'cs-dashboard-report.pdf';
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  } catch (e) {
+    alert('Lỗi xuất PDF: ' + e.message);
+  } finally {
+    setTimeout(() => {
+      btn.disabled = false;
+      btn.classList.remove('is-loading');
+      btn.querySelector('.export-label').textContent = originalLabel;
+    }, 1500);
+  }
+}
+
+async function loadData() {
+  const grids = ['sec-1-grid', 'sec-2-grid', 'sec-3-grid', 'sec-4-grid'];
+  grids.forEach(id => { document.getElementById(id).innerHTML = renderSkeletons(); });
+  showLoading();
+  destroyCharts();
+
+  const team = document.getElementById('team-select').value;
+  const mode = document.getElementById('mode-select').value;
+  const months = document.getElementById('month-select').value;
+  const date = document.getElementById('month-picker').value || defaultMonthValue();
+
+  let url = `/api/kpis?team=${team}&mode=${mode}&months=${months}`;
+  if (mode === 'date') url += `&date=${date}`;
+
+  try {
+    const resp = await fetch(url);
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const data = await resp.json();
+    document.getElementById('period-label').textContent = data.period;
+
+    document.getElementById('sec-1-grid').innerHTML = renderSection1(data);
+    document.getElementById('sec-2-grid').innerHTML = renderSection2(data);
+    document.getElementById('sec-3-grid').innerHTML = renderSection3(data);
+    document.getElementById('sec-4-grid').innerHTML = renderSection4(data);
+
+    revealCards();
+    setTimeout(() => drawCharts(data), 150);
+  } catch (e) {
+    grids.forEach(id => {
+      document.getElementById(id).innerHTML = `<div class="card" style="grid-column:1/-1;text-align:center;padding:48px;color:var(--red)">Lỗi tải dữ liệu: ${e.message}</div>`;
+    });
+  } finally {
+    hideLoading();
+  }
+}
+
+document.getElementById('mode-select').addEventListener('change', () => {
+  syncFilterVisibility();
+  loadData();
+});
+// Date picker: also auto-reload when user picks a day. Range slider already
+// only fires on explicit "Làm mới" so the API isn't hammered.
+document.getElementById('month-picker').addEventListener('change', () => {
+  if (document.getElementById('mode-select').value === 'date') loadData();
+});
+syncFilterVisibility();
+
+// Wait for the web font (Be Vietnam Pro) to finish loading before the first render.
+// Chart.js draws to canvas and does not redraw on font swap, so we delay the first
+// data fetch until the headline / KPI / chart label font is fully resolved.
+(async () => {
+  try {
+    if (document.fonts && document.fonts.ready) {
+      await document.fonts.ready;
+    }
+  } catch (_) { /* older browsers: just proceed */ }
+  loadData();
+  setInterval(loadData, 300000);
+})();
+</script>
+</body>
+</html>
