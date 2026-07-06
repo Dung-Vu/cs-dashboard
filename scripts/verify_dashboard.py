@@ -80,14 +80,21 @@ def main() -> int:
         time.sleep(5)
         page.screenshot(path=str(OUT / "verify-bon.png"), full_page=True)
 
-        # 5. Filter interaction: month mode
+        # 5. Filter interaction: custom date range (from/to)
         page.select_option("#team-select", "all")
-        page.select_option("#mode-select", "date")
+        page.select_option("#mode-select", "custom")
         time.sleep(1)
-        # Type a date
-        page.fill("#month-picker", "2026-05-15")
-        time.sleep(5)
-        page.screenshot(path=str(OUT / "verify-month-mode.png"), full_page=True)
+        page.evaluate("""
+            () => {
+                const df = document.getElementById('date-from');
+                const dt = document.getElementById('date-to');
+                df.value = '2026-01-01';
+                dt.value = '2026-05-15';
+                dt.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+        """)
+        time.sleep(7)
+        page.screenshot(path=str(OUT / "verify-custom-range.png"), full_page=True)
 
         # 6. Capture rendered text for content checks
         body_text = page.inner_text("body")

@@ -351,6 +351,10 @@ def compute_warranty_kpis(tickets: list[dict], date_from: str, date_to: str):
     first_fix_rate = round(first_fix / max(len(bg_groups), 1) * 100, 1)
     repeat_repair_rate = round(repeat_tickets / max(total, 1) * 100, 1)
 
+    # Period-anchored breakdowns (monthly + quarterly) for the FCR/Repeat Rate
+    # sub-chart. Empty buckets are zeroed out so x-axes are evenly spaced.
+    breakdown = compute_warranty_breakdown(warranties, date_from, date_to)
+
     # Top 5 reasons — overall + per brand
     overall_reasons = Counter()
     reasons_by_brand: dict[str, Counter] = {"BON": Counter(), "ORD": Counter()}
@@ -382,6 +386,10 @@ def compute_warranty_kpis(tickets: list[dict], date_from: str, date_to: str):
     this_month = sum(1 for t in warranties if (t.get("create_date", "") or "")[:7] == date_to[:7])
     last_month = sum(1 for t in warranties if (t.get("create_date", "") or "")[:7] == date_from[:7])
 
+    # Period-anchored breakdowns (monthly + quarterly) for the FCR/Repeat Rate
+    # sub-chart. Empty buckets are zeroed out so x-axes are evenly spaced.
+    breakdown = compute_warranty_breakdown(warranties, date_from, date_to)
+
     return {
         "total": total,
         "first_fix_rate": first_fix_rate,
@@ -401,7 +409,90 @@ def compute_warranty_kpis(tickets: list[dict], date_from: str, date_to: str):
         "this_month": this_month,
         "last_month": last_month,
         "mom_change": round((this_month - last_month) / max(last_month, 1) * 100, 1) if last_month > 0 else 0,
+        "breakdown": breakdown,
     }
+
+
+def compute_warranty_breakdown(warranties: list[dict], date_from: str, date_to: str):
+    """Split FCR + Repeat Repair Rate into months and quarters covering [from, to].
+
+    Each ticket is bucketed by create_date (YYYY-MM) and by quarter (Q1-Q4 of
+    the year). Within each bucket tickets are grouped by BG code (sale order
+    ID) to compute first_fix (single occurrence per BG) vs repeat (>1). Empty
+    months are still emitted so the chart x-axis stays continuous.  Quarter
+    labels use 'Q1-2026' style for the report template.
+
+    Returns: {
+      "monthly":  [{"key": "2026-05", "label": "T05/2026", "fcr": 87.5, "repeat": 12.5, "total": 14}, ...],
+      "quarterly": [{"key": "Q1-2026", "label": "Q1-2026", "fcr": 85.0, "repeat": 14.0, "total": 20}, ...],
+    }
+    """
+    try:
+        start = datetime.strptime(date_from[:10], "%Y-%m-%d")
+        end = datetime.strptime(date_to[:10], "%Y-%m-%d")
+    except (ValueError, TypeError):
+        return {"monthly": [], "quarterly": []}
+
+    # Pre-bucket warranties by YYYY-MM and by QUARTER-YYYY
+    monthly_buckets: dict[str, list] = {}
+    quarter_buckets: dict[str, list] = {}
+    for t in warranties:
+        cd = (t.get("create_date", "") or "")[:10]
+        if not cd or cd < date_from[:10] or cd > date_to[:10]:
+            continue
+        ym = cd[:7]
+        y, m, _ = cd.split("-")
+        q = (int(m) - 1) // 3 + 1
+        qk = f"Q{q}-{y}"
+        monthly_buckets.setdefault(ym, []).append(t)
+        quarter_buckets.setdefault(qk, []).append(t)
+
+    def _stats(items: list) -> dict:
+        bg_groups: dict[str, int] = {}
+        for it in items:
+            bg = it.get("x_studio_sale_orders", "") or ""
+            if bg:
+                bg_groups[bg] = bg_groups.get(bg, 0) + 1
+        ttl = len(items)
+        rep_bg = sum(1 for v in bg_groups.values() if v >= 2)
+        first_bg = len(bg_groups) - rep_bg
+        fcr = round(first_bg / max(len(bg_groups), 1) * 100, 1) if bg_groups else 0.0
+        rep_tickets = sum(v for v in bg_groups.values() if v >= 2)
+        rep = round(rep_tickets / max(ttl, 1) * 100, 1) if ttl else 0.0
+        return {"fcr": fcr, "repeat": rep, "total": ttl}
+
+    # Fill every month in [from, to] so empty months still show a 0 line.
+    monthly: list = []
+    cursor = datetime(start.year, start.month, 1)
+    end_cursor = datetime(end.year, end.month, 1)
+    while cursor <= end_cursor:
+        ym = cursor.strftime("%Y-%m")
+        stats = _stats(monthly_buckets.get(ym, []))
+        monthly.append({
+            "key": ym,
+            "label": f"T{cursor.month:02d}/{cursor.year}",
+            **stats,
+        })
+        if cursor.month == 12:
+            cursor = datetime(cursor.year + 1, 1, 1)
+        else:
+            cursor = datetime(cursor.year, cursor.month + 1, 1)
+
+    quarterly: list = []
+    cur_y = start.year
+    cur_q = (start.month - 1) // 3 + 1
+    end_y = end.year
+    end_q = (end.month - 1) // 3 + 1
+    while (cur_y, cur_q) <= (end_y, end_q):
+        qk = f"Q{cur_q}-{cur_y}"
+        stats = _stats(quarter_buckets.get(qk, []))
+        quarterly.append({"key": qk, "label": f"Q{cur_q}-{cur_y}", **stats})
+        cur_q += 1
+        if cur_q > 4:
+            cur_q = 1
+            cur_y += 1
+
+    return {"monthly": monthly, "quarterly": quarterly}
 
 
 def compute_csat(tickets: list[dict]):
@@ -658,35 +749,80 @@ def index():
     return render_template("dashboard.html")
 
 
-def resolve_date_range(mode: str, date_str: str, months: int):
-    """Return (from_date, to_date, mode, date_str) based on filter params.
+def _parse_iso_date(s: str) -> datetime | None:
+    """Parse 'YYYY-MM-DD' (with optional time suffix) into a datetime, or None."""
+    if not s:
+        return None
+    try:
+        return datetime.strptime(s[:10], "%Y-%m-%d")
+    except (ValueError, TypeError):
+        return None
 
-    mode='date'  → single calendar day (date_str = YYYY-MM-DD)
-    mode='range' → trailing N months ending today (months = N)
+
+def _month_end(year: int, month: int) -> datetime:
+    """Last day (23:59:59) of (year, month). month is 1-12."""
+    last_day = calendar.monthrange(year, month)[1]
+    return datetime(year, month, last_day, 23, 59, 59)
+
+
+def resolve_date_range(mode: str, params: dict, months: int = 1):
+    """Return (from_date, to_date, mode, echo_str) for one of three filter modes.
+
+    mode='range'  → N full calendar months ending at current month end
+                    (today=2026-07-06, months=3 → 2026-05-01 → 2026-07-31)
+    mode='custom' → arbitrary date range from params['from'] / params['to']
     """
-    if mode == "date" and date_str:
-        try:
-            y, m, d = date_str.split("-")
-            y, m, d = int(y), int(m), int(d)
-            from_date = f"{y:04d}-{m:02d}-{d:02d} 00:00:00"
-            to_date = f"{y:04d}-{m:02d}-{d:02d} 23:59:59"
-            return from_date, to_date, "date", date_str
-        except (ValueError, TypeError):
-            pass
-    to_date = datetime.now().strftime("%Y-%m-%d 23:59:59")
-    from_date = (datetime.now() - timedelta(days=30 * months)).strftime("%Y-%m-%d 00:00:00")
-    return from_date, to_date, "range", ""
+    if mode == "range":
+        n = max(1, months)
+        now = datetime.now()
+        # Anchor: start (n-1) months before the current month, end: end of current month
+        start_month_year = now.month - (n - 1)
+        start_year = now.year
+        while start_month_year <= 0:
+            start_month_year += 12
+            start_year -= 1
+        from_dt = datetime(start_year, start_month_year, 1, 0, 0, 0)
+        to_dt = _month_end(now.year, now.month)
+        return (
+            from_dt.strftime("%Y-%m-%d 00:00:00"),
+            to_dt.strftime("%Y-%m-%d 23:59:59"),
+            "range",
+            f"{n} tháng",
+        )
+
+    if mode == "custom":
+        f = _parse_iso_date(params.get("from", ""))
+        t = _parse_iso_date(params.get("to", ""))
+        if f and t and f <= t:
+            return (
+                f.strftime("%Y-%m-%d 00:00:00"),
+                t.strftime("%Y-%m-%d 23:59:59"),
+                "custom",
+                f"{params.get('from', '')} → {params.get('to', '')}",
+            )
+
+    # Fallback: 1 calendar month ending now
+    now = datetime.now()
+    return (
+        datetime(now.year, now.month, 1, 0, 0, 0).strftime("%Y-%m-%d 00:00:00"),
+        _month_end(now.year, now.month).strftime("%Y-%m-%d 23:59:59"),
+        "range",
+        "1 tháng",
+    )
 
 
 @app.route("/api/kpis")
 def api_kpis():
     """JSON endpoint: all KPIs."""
     team = request.args.get("team", "all")  # all, ord, bon
-    mode = request.args.get("mode", "range")  # range, month
+    mode = request.args.get("mode", "range")  # range | custom
     months = int(request.args.get("months", "1"))
-    month = request.args.get("date", "")  # YYYY-MM
+    custom_params = {
+        "from": request.args.get("from", ""),
+        "to": request.args.get("to", ""),
+    }
 
-    from_date, to_date, mode, month = resolve_date_range(mode, month, months)
+    from_date, to_date, mode, echo = resolve_date_range(mode, custom_params, months)
 
     # Determine team filter
     team_ids_map = {"ord": [14], "bon": [15], "all": TEAM_IDS}
@@ -712,7 +848,8 @@ def api_kpis():
     return jsonify({
         "team": team,
         "mode": mode,
-        "month": month,
+        "echo": echo,
+        "months": months,
         "period": f"{from_date[:10]} → {to_date[:10]}",
         "elapsed_ms": elapsed,
         "complaints": complaint,
@@ -1316,9 +1453,12 @@ def api_export():
     team = request.args.get("team", "all")
     mode = request.args.get("mode", "range")
     months = int(request.args.get("months", "1"))
-    month = request.args.get("date", "")
+    custom_params = {
+        "from": request.args.get("from", ""),
+        "to": request.args.get("to", ""),
+    }
 
-    from_date, to_date, mode, month = resolve_date_range(mode, month, months)
+    from_date, to_date, mode, echo = resolve_date_range(mode, custom_params, months)
     team_ids_map = {"ord": [14], "bon": [15], "all": TEAM_IDS}
     team_ids = team_ids_map.get(team, TEAM_IDS)
 
@@ -1328,7 +1468,8 @@ def api_export():
     payload = {
         "team": team,
         "mode": mode,
-        "month": month,
+        "echo": echo,
+        "months": months,
         "period": f"{from_date[:10]} → {to_date[:10]}",
         "complaints": compute_complaint_kpis(tickets, from_date, to_date),
         "retention": compute_retention_rate(tickets),
@@ -1395,9 +1536,12 @@ def api_export_pdf():
     team = filters.get("team", "all")
     mode = filters.get("mode", "range")
     months = int(filters.get("months", 1))
-    month = filters.get("date", "") or filters.get("month", "")
+    custom_params = {
+        "from": filters.get("from", "") or filters.get("date_from", ""),
+        "to": filters.get("to", "") or filters.get("date_to", ""),
+    }
 
-    from_date, to_date, mode, month = resolve_date_range(mode, month, months)
+    from_date, to_date, mode, echo = resolve_date_range(mode, custom_params, months)
     team_ids_map = {"ord": [14], "bon": [15], "all": TEAM_IDS}
     team_ids = team_ids_map.get(team, TEAM_IDS)
 
@@ -1407,7 +1551,8 @@ def api_export_pdf():
     payload = {
         "team": team,
         "mode": mode,
-        "month": month,
+        "echo": echo,
+        "months": months,
         "period": f"{from_date[:10]} → {to_date[:10]}",
         "complaints": compute_complaint_kpis(tickets, from_date, to_date),
         "retention": compute_retention_rate(tickets),

@@ -107,6 +107,10 @@ input[type="date"] {
 input[type="date"]:hover { color: var(--text); background: var(--surface-2); }
 input[type="date"]::-webkit-calendar-picker-indicator { filter: opacity(0.55); cursor: pointer; }
 .filter-group { display: flex; align-items: center; gap: 2px; }
+/* Custom date range: two side-by-side inputs with tiny labels */
+.from-to { display: inline-flex; align-items: center; gap: 6px; padding: 0 8px; }
+.from-to .lbl { font-size: 0.75rem; color: var(--text-3); font-weight: 500; }
+.from-to input[type="date"] { padding: 6px 8px; }
 
 /* ── Main Container ─────────────────────────────────────────────────── */
 main { position: relative; z-index: 1; max-width: 1440px; margin: 0 auto; padding: 116px 40px 72px; }
@@ -253,6 +257,15 @@ main { position: relative; z-index: 1; max-width: 1440px; margin: 0 auto; paddin
 .chart-wrap { position: relative; height: 220px; width: 100%; }
 .chart-wrap.tall { height: 260px; }
 .chart-wrap.short { height: 180px; }
+
+/* FCR/Repeat Rate breakdown table under the trend chart */
+.breakdown-table-wrap { margin-top: 16px; overflow-x: auto; }
+.breakdown-table { width: 100%; border-collapse: collapse; font-size: 0.8125rem; }
+.breakdown-table th, .breakdown-table td { padding: 8px 10px; text-align: left; border-bottom: 1px solid var(--border, #e8e4dc); }
+.breakdown-table th { font-weight: 600; color: var(--text-3); font-size: 0.6875rem; letter-spacing: 0.04em; text-transform: uppercase; }
+.breakdown-table td.pos { color: #1e7d4f; font-weight: 600; }
+.breakdown-table td.mid { color: #b07a13; font-weight: 600; }
+.breakdown-table td.neg { color: #b3341f; font-weight: 600; }
 
 /* ── Brand split (Bonario / Ordinaire) ─────────────────────────────── */
 .brand-split { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
@@ -404,18 +417,26 @@ footer .sep { margin: 0 10px; opacity: 0.4; }
   <span class="divider"></span>
   <select id="mode-select" aria-label="Chế độ lọc">
     <option value="range">Theo khoảng thời gian</option>
-    <option value="date">Theo ngày cụ thể</option>
+    <option value="custom">Theo ngày (tùy chọn)</option>
   </select>
   <span class="filter-group" id="range-filter">
     <select id="month-select" aria-label="Số tháng">
       <option value="1">1 tháng</option>
       <option value="3">3 tháng</option>
       <option value="6">6 tháng</option>
+      <option value="9">9 tháng</option>
       <option value="12">12 tháng</option>
     </select>
   </span>
   <span class="filter-group" id="month-filter" style="display:none">
-    <input type="date" id="month-picker" aria-label="Chọn ngày">
+    <label class="from-to">
+      <span class="lbl">Từ</span>
+      <input type="date" id="date-from" aria-label="Từ ngày">
+    </label>
+    <label class="from-to">
+      <span class="lbl">Đến</span>
+      <input type="date" id="date-to" aria-label="Đến ngày">
+    </label>
   </span>
   <button onclick="loadData()" aria-label="Làm mới dữ liệu">Làm mới</button>
   <button class="export" onclick="exportPdf(this)" aria-label="Xuất báo cáo PDF">
@@ -562,6 +583,45 @@ function renderWarrantyReasonsCard(brand, brandName, reasons) {
       ? chartWrap(`chart-warranty-reasons-${brand.toLowerCase()}`)
       : emptyState(`Chưa có dữ liệu ${brandName}`),
     { tag: brand, tagClass }
+  );
+}
+
+// FCR + Repeat Repair Rate broken down by month (3-month reports) or
+// quarter (6/9/12-month). Frontend picks the granularity based on the
+// number of buckets the API returned.
+function renderFcrBreakdownCard(d) {
+  const bd = (d && d.breakdown) || { monthly: [], quarterly: [] };
+  // Choose granularity: >=4 buckets → quarters, otherwise months.
+  let series = bd.quarterly || [];
+  let granularity = 'quý';
+  if (!series.length || series.length < 4) {
+    series = bd.monthly || [];
+    granularity = 'tháng';
+  }
+  // Need at least 2 buckets to draw a meaningful line; otherwise skip the card.
+  if (series.length < 2) return '';
+
+  const title = `FCR & Repeat Repair / ${granularity === 'tháng' ? 'Theo tháng' : 'Theo quý'}`;
+  return card(title,
+    `<div class="kpi-row">
+      ${kpi('FCR trung bình', d.first_fix_rate+'%', d.first_fix_rate>=80?'val-green':'val-amber')}
+      ${kpi('Repeat trung bình', d.repeat_repair_rate+'%', d.repeat_repair_rate>30?'val-red':'val-green')}
+      ${kpi('Tổng case', d.total, 'val-amber')}
+      ${kpi(`Số ${granularity}`, series.length, 'val-blue')}
+    </div>
+    <div class="chart-wrap">${chartWrap('chart-fcr-breakdown')}</div>
+    <div class="breakdown-table-wrap"><table class="breakdown-table">
+      <thead><tr><th>${granularity === 'tháng' ? 'Tháng' : 'Quý'}</th><th>FCR</th><th>Repeat</th><th>Case</th></tr></thead>
+      <tbody>
+        ${series.map(s => `<tr>
+          <td>${s.label}</td>
+          <td class="${s.fcr>=80?'pos':s.fcr>=60?'mid':'neg'}">${s.fcr}%</td>
+          <td class="${s.repeat>30?'neg':s.repeat>15?'mid':'pos'}">${s.repeat}%</td>
+          <td>${s.total}</td>
+        </tr>`).join('')}
+      </tbody>
+    </table></div>`,
+    { tag: 'Warranty' }
   );
 }
 
@@ -757,14 +817,16 @@ function renderSection1(d) {
   const c = d.complaints, w = d.warranty;
   const crByBrand = (c.top5_reasons_by_brand) || {};
   const wrByBrand = (w.top5_reasons_by_brand) || {};
+  const fcrCard = renderFcrBreakdownCard(w);
   return [
     `<div class="span-2 row-2">${renderComplaintCard(c)}</div>`,
     `<div class="span-2">${renderTopReasonsCard('BON', 'Bonario', crByBrand.BON || [])}</div>`,
     `<div class="span-2">${renderTopReasonsCard('ORD', 'Ordinaire', crByBrand.ORD || [])}</div>`,
     `<div class="span-2 row-2">${renderWarrantyCard(w)}</div>`,
+    fcrCard ? `<div class="span-2 row-2">${fcrCard}</div>` : '',
     `<div class="span-2">${renderWarrantyReasonsCard('BON', 'Bonario', wrByBrand.BON || [])}</div>`,
     `<div class="span-2">${renderWarrantyReasonsCard('ORD', 'Ordinaire', wrByBrand.ORD || [])}</div>`,
-  ].join('');
+  ].filter(Boolean).join('');
 }
 
 function renderSection2(d) {
@@ -805,6 +867,8 @@ const CHART_TICK_SIZE = 12;
 const BRAND_COLORS = {
   BON: { line: '#0f7a52', fill: 'rgba(15,122,82,0.10)', bar: 'rgba(15,122,82,0.70)' },
   ORD: { line: '#2554a8', fill: 'rgba(37,84,168,0.10)', bar: 'rgba(37,84,168,0.70)' },
+  FCR: { line: '#0d6b62', fill: 'rgba(13,107,98,0.10)', bar: 'rgba(13,107,98,0.70)' },
+  REPEAT: { line: '#b3341f', fill: 'rgba(179,52,31,0.10)', bar: 'rgba(179,52,31,0.70)' },
 };
 const TOP5_COLORS = ['#b3341f', '#b07a13', '#6b46c1', '#0f7a52', '#2554a8'];
 
@@ -938,6 +1002,17 @@ function drawCharts(data) {
   // Section 1: Warranty
   const wm = data.warranty.monthly_trend || [];
   drawLine('chart-warranty-monthly', wm.map(m => m.month), wm.map(m => m.count), '#b07a13', 'rgba(176,122,19,0.10)');
+
+  // Section 1: FCR + Repeat Rate breakdown (monthly for 3 tháng, quarterly for 6/9/12)
+  const bd = (data.warranty.breakdown) || { monthly: [], quarterly: [] };
+  let fcrSeries = bd.quarterly || [];
+  if (!fcrSeries.length || fcrSeries.length < 4) fcrSeries = bd.monthly || [];
+  if (fcrSeries.length >= 2) {
+    drawMultiLine('chart-fcr-breakdown', fcrSeries.map(s => s.label), [
+      { key: 'FCR', label: 'FCR Rate', data: fcrSeries.map(s => s.fcr) },
+      { key: 'REPEAT', label: 'Repeat Repair', data: fcrSeries.map(s => s.repeat) },
+    ]);
+  }
   const wrByBrand = (data.warranty.top5_reasons_by_brand) || {};
   drawTopReasons('chart-warranty-reasons-bon', wrByBrand.BON || []);
   drawTopReasons('chart-warranty-reasons-ord', wrByBrand.ORD || []);
@@ -998,13 +1073,19 @@ function renderSkeletons() {
 function syncFilterVisibility() {
   const mode = document.getElementById('mode-select').value;
   document.getElementById('range-filter').style.display = mode === 'range' ? '' : 'none';
-  document.getElementById('month-filter').style.display = mode === 'date' ? '' : 'none';
+  document.getElementById('month-filter').style.display = mode === 'custom' ? '' : 'none';
 }
 
-function defaultMonthValue() {
-  // ISO date string YYYY-MM-DD; treated as month anchor in backend (start of month)
+// Default custom range = current calendar month, full.
+function defaultCustomRange() {
   const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`;
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const lastDay = new Date(y, d.getMonth() + 1, 0).getDate();
+  return {
+    from: `${y}-${m}-01`,
+    to: `${y}-${m}-${String(lastDay).padStart(2, '0')}`,
+  };
 }
 
 // Build the current filter query string — reused by loadData and exportPdf.
@@ -1012,9 +1093,13 @@ function currentFilterParams() {
   const team = document.getElementById('team-select').value;
   const mode = document.getElementById('mode-select').value;
   const months = document.getElementById('month-select').value;
-  const date = document.getElementById('month-picker').value || defaultMonthValue();
   let qs = `team=${team}&mode=${mode}&months=${months}`;
-  if (mode === 'date') qs += `&date=${date}`;
+  if (mode === 'custom') {
+    const def = defaultCustomRange();
+    const from = document.getElementById('date-from').value || def.from;
+    const to = document.getElementById('date-to').value || def.to;
+    qs += `&from=${from}&to=${to}`;
+  }
   return qs;
 }
 
@@ -1106,10 +1191,14 @@ async function loadData() {
   const team = document.getElementById('team-select').value;
   const mode = document.getElementById('mode-select').value;
   const months = document.getElementById('month-select').value;
-  const date = document.getElementById('month-picker').value || defaultMonthValue();
 
   let url = `/api/kpis?team=${team}&mode=${mode}&months=${months}`;
-  if (mode === 'date') url += `&date=${date}`;
+  if (mode === 'custom') {
+    const def = defaultCustomRange();
+    const from = document.getElementById('date-from').value || def.from;
+    const to = document.getElementById('date-to').value || def.to;
+    url += `&from=${from}&to=${to}`;
+  }
 
   try {
     const resp = await fetch(url);
@@ -1137,11 +1226,19 @@ document.getElementById('mode-select').addEventListener('change', () => {
   syncFilterVisibility();
   loadData();
 });
-// Date picker: also auto-reload when user picks a day. Range slider already
-// only fires on explicit "Làm mới" so the API isn't hammered.
-document.getElementById('month-picker').addEventListener('change', () => {
-  if (document.getElementById('mode-select').value === 'date') loadData();
+// Auto-reload when either custom date input changes. Range slider is left
+// alone so we don't hammer the API on every option click.
+['date-from', 'date-to'].forEach(id => {
+  document.getElementById(id).addEventListener('change', () => {
+    if (document.getElementById('mode-select').value === 'custom') loadData();
+  });
 });
+// Seed default custom range inputs to the current calendar month.
+{
+  const def = defaultCustomRange();
+  document.getElementById('date-from').value = def.from;
+  document.getElementById('date-to').value = def.to;
+}
 syncFilterVisibility();
 
 // Wait for the web font (Be Vietnam Pro) to finish loading before the first render.
