@@ -247,6 +247,13 @@ def compute_complaint_kpis(tickets: list[dict], date_from: str, date_to: str):
     fcr_rate = round(fcr_count / max(len(bg_groups), 1) * 100, 1)
     repeat_rate = round(repeat_tickets / max(total, 1) * 100, 1)
 
+    # Per-brand total counts (used as explicit KPIs in the card).
+    by_brand_count = {"BON": 0, "ORD": 0}
+    for t in complaints:
+        b = brand_of(t.get("team_id"))
+        if b in by_brand_count:
+            by_brand_count[b] += 1
+
     # Top 5 reasons — overall + split by brand
     overall_reasons = Counter()
     reasons_by_brand: dict[str, Counter] = {"BON": Counter(), "ORD": Counter()}
@@ -257,15 +264,20 @@ def compute_complaint_kpis(tickets: list[dict], date_from: str, date_to: str):
         if b in reasons_by_brand:
             reasons_by_brand[b][r] += 1
 
-    # Monthly trend (last 12 months)
+    # Monthly trend covering exactly the filtered period so the chart x-axis
+    # matches date_from → date_to without 11 empty bars for a 1-month range.
     monthly = {}
     monthly_by_brand: dict[str, dict[str, int]] = {"BON": {}, "ORD": {}}
-    current = datetime.strptime(date_to[:7] + "-01", "%Y-%m-%d")
-    for i in range(12):
-        m = (current - timedelta(days=30 * i)).strftime("%Y-%m")
+    start_dt = datetime.strptime(date_from[:7] + "-01", "%Y-%m-%d")
+    end_dt = datetime.strptime(date_to[:7] + "-01", "%Y-%m-%d")
+    cursor = start_dt
+    while cursor <= end_dt:
+        m = cursor.strftime("%Y-%m")
         monthly[m] = 0
         monthly_by_brand["BON"][m] = 0
         monthly_by_brand["ORD"][m] = 0
+        # Advance one calendar month (handles Dec → Jan rollover).
+        cursor = (cursor.replace(day=28) + timedelta(days=4)).replace(day=1)
     for t in complaints:
         m = (t.get("create_date", "") or "")[:7]
         if m in monthly:
@@ -298,6 +310,7 @@ def compute_complaint_kpis(tickets: list[dict], date_from: str, date_to: str):
         "this_month": this_month,
         "last_month": last_month,
         "mom_change": round((this_month - last_month) / max(last_month, 1) * 100, 1) if last_month > 0 else 0,
+        "by_brand_count": by_brand_count,
     }
 
 
@@ -351,6 +364,13 @@ def compute_warranty_kpis(tickets: list[dict], date_from: str, date_to: str):
     first_fix_rate = round(first_fix / max(len(bg_groups), 1) * 100, 1)
     repeat_repair_rate = round(repeat_tickets / max(total, 1) * 100, 1)
 
+    # Per-brand total counts (used as explicit KPIs in the card).
+    by_brand_count = {"BON": 0, "ORD": 0}
+    for t in warranties:
+        b = brand_of(t.get("team_id"))
+        if b in by_brand_count:
+            by_brand_count[b] += 1
+
     # Period-anchored breakdowns (monthly + quarterly) for the FCR/Repeat Rate
     # sub-chart. Empty buckets are zeroed out so x-axes are evenly spaced.
     breakdown = compute_warranty_breakdown(warranties, date_from, date_to)
@@ -365,15 +385,18 @@ def compute_warranty_kpis(tickets: list[dict], date_from: str, date_to: str):
         if b in reasons_by_brand:
             reasons_by_brand[b][r] += 1
 
-    # Monthly trend
+    # Monthly trend covering exactly the filtered period.
     monthly = {}
     monthly_by_brand: dict[str, dict[str, int]] = {"BON": {}, "ORD": {}}
-    current = datetime.strptime(date_to[:7] + "-01", "%Y-%m-%d")
-    for i in range(12):
-        m = (current - timedelta(days=30 * i)).strftime("%Y-%m")
+    start_dt = datetime.strptime(date_from[:7] + "-01", "%Y-%m-%d")
+    end_dt = datetime.strptime(date_to[:7] + "-01", "%Y-%m-%d")
+    cursor = start_dt
+    while cursor <= end_dt:
+        m = cursor.strftime("%Y-%m")
         monthly[m] = 0
         monthly_by_brand["BON"][m] = 0
         monthly_by_brand["ORD"][m] = 0
+        cursor = (cursor.replace(day=28) + timedelta(days=4)).replace(day=1)
     for t in warranties:
         m = (t.get("create_date", "") or "")[:7]
         if m in monthly:
@@ -410,6 +433,7 @@ def compute_warranty_kpis(tickets: list[dict], date_from: str, date_to: str):
         "last_month": last_month,
         "mom_change": round((this_month - last_month) / max(last_month, 1) * 100, 1) if last_month > 0 else 0,
         "breakdown": breakdown,
+        "by_brand_count": by_brand_count,
     }
 
 

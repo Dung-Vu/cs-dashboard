@@ -252,6 +252,8 @@ main { position: relative; z-index: 1; max-width: 1440px; margin: 0 auto; paddin
 .val-blue { color: var(--blue); }
 .val-purple { color: var(--purple); }
 .val-accent { color: var(--accent); }
+.val-ord { color: #2554a8; }     /* ORD brand blue */
+.val-bon { color: #0f7a52; }     /* BON brand green */
 
 /* ── Chart wrap ─────────────────────────────────────────────────────── */
 .chart-wrap { position: relative; height: 220px; width: 100%; }
@@ -541,12 +543,14 @@ function emptyState(msg) {
 
 // ── Section 1: Khiếu nại & Bảo hành ──────────────────────────────────
 function renderComplaintCard(d) {
+  const bbc = d.by_brand_count || { BON: 0, ORD: 0 };
   return card('Khiếu nại / First Contact Resolution',
     `<div class="kpi-row">
       ${kpi('FCR Rate', d.fcr_rate+'%', d.fcr_rate>=80?'val-green':'val-amber')}
       ${kpi('Repeat Rate', d.repeat_rate+'%', d.repeat_rate>30?'val-red':'val-green')}
       ${kpi('Tổng case', d.total, 'val-accent')}
-      ${kpi('Tháng này', d.this_month, '')}
+      ${kpi('Tổng ORD', bbc.ORD, 'val-ord')}
+      ${kpi('Tổng BON', bbc.BON, 'val-bon')}
     </div>
     <div class="chart-wrap">${chartWrap('chart-complaint-monthly')}</div>`,
     { tag: 'Complaints' }
@@ -564,12 +568,14 @@ function renderTopReasonsCard(brand, brandName, reasons) {
 }
 
 function renderWarrantyCard(d) {
+  const bbc = d.by_brand_count || { BON: 0, ORD: 0 };
   return card('Bảo hành / First Time Fix',
     `<div class="kpi-row">
       ${kpi('First Fix', d.first_fix_rate+'%', d.first_fix_rate>=80?'val-green':'val-amber')}
       ${kpi('Repeat Repair', d.repeat_repair_rate+'%', d.repeat_repair_rate>30?'val-red':'val-green')}
       ${kpi('Tổng case', d.total, 'val-amber')}
-      ${kpi('Tháng này', d.this_month, '')}
+      ${kpi('Tổng ORD', bbc.ORD, 'val-ord')}
+      ${kpi('Tổng BON', bbc.BON, 'val-bon')}
     </div>
     <div class="chart-wrap">${chartWrap('chart-warranty-monthly')}</div>`,
     { tag: 'Warranty' }
